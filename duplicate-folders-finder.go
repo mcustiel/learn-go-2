@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -24,9 +25,9 @@ func main() {
 	for index := 0; index < len(orderedFiles); index++ {
 		dirName := orderedFiles[index]
 		fmt.Println("Looking for duplicates of ", dirName)
-		if _, exists := excluded[dirName]; !exists {
+		if !isExcluded(dirName, excluded) {
 			for _, otherDirName := range orderedFiles {
-				if dirName != otherDirName {
+				if dirName != otherDirName && !isExcluded(otherDirName, excluded) {
 					fmt.Println("-- Comparing with", otherDirName)
 					if compareDirContents(GetDirectoryContents(dirName), GetDirectoryContents(otherDirName)) {
 						if _, has := equals[dirName]; !has {
@@ -40,6 +41,8 @@ func main() {
 					}
 				}
 			}
+		} else {
+			fmt.Println("It was already excluded")
 		}
 	}
 
@@ -49,6 +52,15 @@ func main() {
 			fmt.Println("    ", duplicate)
 		}
 	}
+}
+
+func isExcluded(dirName string, excluded map[string]bool) bool {
+	for excludedDir, _ := range excluded {
+		if strings.HasPrefix(dirName, excludedDir) {
+			return true
+		}
+	}
+	return false
 }
 
 func compareDirContents(dir1 []os.FileInfo, dir2 []os.FileInfo) bool {
@@ -63,7 +75,7 @@ func compareDirContents(dir1 []os.FileInfo, dir2 []os.FileInfo) bool {
 			}
 		}
 	}
-	fmt.Println(matches / len(dir1))
+	fmt.Println(float32(matches) / float32(len(dir1)))
 	return matches == len(dir1)
 }
 
