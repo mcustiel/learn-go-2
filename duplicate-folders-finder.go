@@ -2,7 +2,6 @@
 package main
 
 import (
-	// "container/list"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -12,13 +11,8 @@ import (
 	"github.com/mcustiel/graph"
 )
 
-func main() {
-	var graphInstance *graph.Graph = ScanDirToTree("C:\\test")
-	var equalityIndex float32 = 0.8
-
-	excluded := make(map[string]bool, 0)
+func getOrdererFilesList(graphInstance *graph.Graph) map[int]string {
 	orderedFiles := make(map[int]string, 0)
-	equals := make(map[string][]string)
 
 	current := 0
 	graphInstance.Bfs(func(node *graph.Node) {
@@ -26,6 +20,17 @@ func main() {
 		orderedFiles[current] = value
 		current++
 	})
+
+	return orderedFiles
+}
+
+func main() {
+	var equalityIndex float32 = 0.8
+	graphInstance := ScanDirToTree("C:\\test")
+
+	excluded := make(map[string]bool, 0)
+	orderedFiles := getOrdererFilesList(graphInstance)
+	equals := make(map[string][]string)
 
 	for index := 0; index < len(orderedFiles); index++ {
 		dirName := orderedFiles[index]
@@ -44,6 +49,10 @@ func main() {
 		}
 	}
 
+	printDuplicates(equals)
+}
+
+func printDuplicates(equals map[string][]string) {
 	for dirName, duplicates := range equals {
 		fmt.Println("Duplicates for ", dirName)
 		for _, duplicate := range duplicates {
