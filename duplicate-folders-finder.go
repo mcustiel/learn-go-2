@@ -11,37 +11,45 @@ import (
 	"github.com/mcustiel/graph"
 )
 
-func getOrdererFilesList(graphInstance *graph.Graph) map[int]string {
-	orderedFiles := make(map[int]string, 0)
+func getOrdererFilesList(graphInstance *graph.Graph) []string {
+	orderedFiles := make([]string, 0)
 
-	current := 0
 	graphInstance.Bfs(func(node *graph.Node) {
 		value := node.Value().(string)
-		orderedFiles[current] = value
-		current++
+		if value != "" {
+			orderedFiles = addToList(orderedFiles, value)
+		}
 	})
 
 	return orderedFiles
 }
 
+type Equals struct {
+	dirName  string
+	equality float32
+}
+
 func main() {
 	var equalityIndex float32 = 0.8
-	graphInstance := ScanDirToTree("C:\\test")
+
+	var directories []string = []string{"c:\\test"}
 
 	excluded := make(map[string]bool, 0)
-	orderedFiles := getOrdererFilesList(graphInstance)
-	equals := make(map[string][]string)
+
+	equals := make(map[string][]Equals)
+	orderedFiles := getOrdererFilesList(getDiretoriesGraph(directories))
 
 	for index := 0; index < len(orderedFiles); index++ {
 		dirName := orderedFiles[index]
+		fmt.Println("Comparing ", dirName)
 		if !isExcluded(dirName, excluded) {
-			for _, otherDirName := range orderedFiles {
-				if dirName != otherDirName && !isExcluded(otherDirName, excluded) {
-					if calculateEqualityIndex(GetDirectoryContents(dirName), GetDirectoryContents(otherDirName)) >= equalityIndex {
+			for _, otherDirName := range orderedFiles[index:] {
+				if dirName != otherDirName /*&& !isExcluded(otherDirName, excluded)*/ {
+					if equality := calculateEqualityIndex(GetDirectoryContents(dirName), GetDirectoryContents(otherDirName)); equality >= equalityIndex {
 						if _, has := equals[dirName]; !has {
-							equals[dirName] = make([]string, 0)
+							equals[dirName] = make([]Equals, 0)
 						}
-						equals[dirName] = addToList(equals[dirName], otherDirName)
+						equals[dirName] = addToEquals(equals[dirName], Equals{otherDirName, equality})
 						excluded[otherDirName] = true
 					}
 				}
@@ -52,7 +60,16 @@ func main() {
 	printDuplicates(equals)
 }
 
-func printDuplicates(equals map[string][]string) {
+func getDiretoriesGraph(directories []string) *graph.Graph {
+	var root *graph.Node = graph.NewNode("")
+
+	for i := 0; i < len(directories); i++ {
+		root.AddAdyacent(ScanDirToTree(directories[i]))
+	}
+	return graph.New(root)
+}
+
+func printDuplicates(equals map[string][]Equals) {
 	for dirName, duplicates := range equals {
 		fmt.Println("Duplicates for ", dirName)
 		for _, duplicate := range duplicates {
@@ -97,7 +114,19 @@ func addToList(stringList []string, element string) []string {
 	return stringList
 }
 
-func ScanDirToTree(dirName string) *graph.Graph {
+func addToEquals(stringList []Equals, element Equals) []Equals {
+	n := len(stringList)
+	if n == cap(stringList) {
+		newList := make([]Equals, len(stringList), cap(stringList)+1)
+		copy(newList, stringList)
+		stringList = newList
+	}
+	stringList = stringList[0 : n+1]
+	stringList[n] = element
+	return stringList
+}
+
+func ScanDirToTree(dirName string) *graph.Node {
 	var function func(string) *graph.Node
 	function = func(curDir string) *graph.Node {
 		node := graph.NewNode(curDir)
@@ -108,7 +137,7 @@ func ScanDirToTree(dirName string) *graph.Graph {
 		}
 		return node
 	}
-	return graph.New(function(dirName))
+	return function(dirName)
 }
 
 func GetDirectoryContents(dirName string) []os.FileInfo {
